@@ -1,0 +1,166 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="row">
+    {% if results %}
+        {# High Score Section #}
+        {% set high_scores = results|selectattr('score', '>=', 75)|list %}
+        {% if high_scores %}
+        <div class="col-12 mb-4">
+            <div class="card border-success">
+                <div class="card-header bg-success text-white">
+                    <h4 class="mb-0">Top Matches (>75% Match)</h4>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        {% for result in high_scores %}
+                        <div class="col-md-6 mb-3">
+                            <div class="card h-100">
+                                <div class="card-body">
+                                    <h5 class="card-title">{{ result.filename }}</h5>
+                                    <div class="progress mb-3" style="height: 20px;">
+                                        <div class="progress-bar bg-success"
+                                             role="progressbar"
+                                             style="width: {{ result.score }}%"
+                                             aria-valuenow="{{ result.score }}"
+                                             aria-valuemin="0"
+                                             aria-valuemax="100">
+                                            {{ result.score }}%
+                                        </div>
+                                    </div>
+                                    <div class="keywords-container">
+                                        {% for keyword in result.matching_keywords %}
+                                        <span class="badge bg-success me-1 mb-1">{{ keyword }}</span>
+                                        {% endfor %}
+                                    </div>
+                                    <button class="btn btn-primary mt-2" onclick="showPDF('{{ result.filename }}')">
+                                        <i class="bi bi-file-pdf"></i> View Resume
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        {# All Results Table #}
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h4 class="mb-0">All Results</h4>
+                    <a href="/" class="btn btn-outline-secondary btn-sm">
+                        <i class="bi bi-arrow-left"></i> New Analysis
+                    </a>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Resume</th>
+                                    <th>Match Score</th>
+                                    <th>Matching Keywords</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for result in results %}
+                                <tr>
+                                    <td>{{ result.filename }}</td>
+                                    <td>
+                                        <div class="progress" style="height: 20px;">
+                                            <div class="progress-bar {% if result.score >= 75 %}bg-success{% elif result.score >= 50 %}bg-warning{% else %}bg-danger{% endif %}"
+                                                 role="progressbar"
+                                                 style="width: {{ result.score }}%"
+                                                 aria-valuenow="{{ result.score }}"
+                                                 aria-valuemin="0"
+                                                 aria-valuemax="100">
+                                                {{ result.score }}%
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <div class="keywords-container">
+                                            {% for keyword in result.matching_keywords %}
+                                            <span class="badge {% if result.score >= 75 %}bg-success{% elif result.score >= 50 %}bg-warning{% else %}bg-danger{% endif %} me-1">{{ keyword }}</span>
+                                            {% endfor %}
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <button class="btn btn-primary btn-sm" onclick="showPDF('{{ result.filename }}')">
+                                            <i class="bi bi-file-pdf"></i> View
+                                        </button>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    {% else %}
+        <div class="col-12">
+            <div class="alert alert-warning">
+                No results found or error processing documents.
+            </div>
+        </div>
+    {% endif %}
+</div>
+
+<!-- PDF Viewer Modal -->
+<div class="modal fade" id="pdfModal" tabindex="-1" aria-labelledby="pdfModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="pdfModalLabel">Resume Viewer</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div id="pdfViewer" style="height: 800px;"></div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script>
+pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+function showPDF(filename) {
+    const modal = new bootstrap.Modal(document.getElementById('pdfModal'));
+    const container = document.getElementById('pdfViewer');
+    container.innerHTML = ''; // Clear previous content
+
+    // Load and render the PDF
+    pdfjsLib.getDocument(`/view_pdf/${filename}`).promise.then(function(pdf) {
+        // Get the first page
+        pdf.getPage(1).then(function(page) {
+            const scale = 1.5;
+            const viewport = page.getViewport({ scale: scale });
+
+            // Prepare canvas for rendering
+            const canvas = document.createElement('canvas');
+            const context = canvas.getContext('2d');
+            canvas.height = viewport.height;
+            canvas.width = viewport.width;
+            container.appendChild(canvas);
+
+            // Render PDF page into canvas context
+            const renderContext = {
+                canvasContext: context,
+                viewport: viewport
+            };
+            page.render(renderContext);
+        });
+    });
+
+    modal.show();
+}
+</script>
+{% endblock %}
